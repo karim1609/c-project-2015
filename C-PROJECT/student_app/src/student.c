@@ -1,7 +1,6 @@
 #include "student.h"
 #include "config.h"
 #include "crypto.h"
-#include "validation.h"
 #include "ui.h"
 #include "file.h"
 #include "report.h"
@@ -145,7 +144,7 @@ Student* student_list_find_by_email(StudentList* list, const char* email) {
     }
 
     for (int i = 0; i < list->count; i++) {
-        if (list->students[i].email != NULL && strcmp(list->students[i].email, email) == 0) {
+        if (strcmp(list->students[i].email, email) == 0) {
             return &list->students[i];
         }
     }
@@ -167,7 +166,7 @@ void student_list_display_all(StudentList* list){
        printf("First Name: %s\n", list->students[i].first_name);
        printf("Last Name: %s\n", list->students[i].last_name);
        printf("Email: %s\n", list->students[i].email);
-       printf("age: %s\n", list->students[i].age);
+       printf("age: %d\n", list->students[i].age);
        printf("Phone: %s\n", list->students[i].phone);
        printf("Address: %s\n", list->students[i].address);
        printf("--------------------\n");
@@ -203,7 +202,7 @@ int student_list_save_to_file(StudentList* list, const char* filename) {
     // Save students as CSV (or adjust fields as necessary)
     for (int i = 0; i < list->count; i++) {
         Student* s = &list->students[i];
-        fprintf(file, "%d,%s,%s,%s,%s,%s,%d,%s,%d,%.2f,%ld,%d\n",
+        fprintf(file, "%d,%s,%s,%s,%s,%s,%d,%s,%d,%.2f,%lld,%d\n",
             s->id,
             s->first_name,
             s->last_name,
@@ -214,7 +213,7 @@ int student_list_save_to_file(StudentList* list, const char* filename) {
             s->course,
             s->year,
             s->gpa,
-            (long)s->enrollment_date,
+            (long long)s->enrollment_date,
             s->is_active
         );
     }
@@ -224,6 +223,10 @@ int student_list_save_to_file(StudentList* list, const char* filename) {
 int student_list_load_from_file(StudentList* list, const char* filename){
     if (list == NULL || filename == NULL) {
         printf("Error: Invalid arguments to student_list_load_from_file\n");
+        return 0;
+    }
+    if (list->students == NULL) {
+        printf("Error: Student list students array is not allocated\n");
         return 0;
     }
     FILE* file = fopen(filename, "r");
@@ -238,7 +241,8 @@ int student_list_load_from_file(StudentList* list, const char* filename){
     while (fgets(line, sizeof(line), file)) {
         Student s;
         // Adjust sscanf format string to match the fields written in save_to_file
-        int fields = sscanf(line, "%d,%[^,],%[^,],%[^,],%[^,],%[^,],%d,%[^,],%d,%f,%ld,%d",
+        long long enrollment_date_temp;
+        int fields = sscanf(line, "%d,%[^,],%[^,],%[^,],%[^,],%[^,],%d,%[^,],%d,%f,%lld,%d",
             &s.id,
             s.first_name,
             s.last_name,
@@ -249,11 +253,12 @@ int student_list_load_from_file(StudentList* list, const char* filename){
             s.course,
             &s.year,
             &s.gpa,
-            &s.enrollment_date,
+            &enrollment_date_temp,
             &s.is_active
         );
         // 12 fields expected
         if (fields == 12) {
+            s.enrollment_date = (time_t)enrollment_date_temp;
             if (index < list->capacity) {
                 list->students[index++] = s;
             } else {
@@ -319,10 +324,11 @@ void student_list_sort_by_gpa(StudentList* list) {
             }
         }
     }
-    int student_list_get_count(StudentList* list) {
-        if (list == NULL) return 0;
-        return list->count;
-    }
+}
+
+int student_list_get_count(StudentList* list) {
+    if (list == NULL) return 0;
+    return list->count;
 }
 Student* student_list_get_student(StudentList* list, int index){
     if(list == NULL || list->students == NULL){
@@ -335,25 +341,70 @@ Student* student_list_get_student(StudentList* list, int index){
         return NULL;
     }
 }
-int student_validation_gpa(float gpa) {
+int student_validate_gpa(float gpa) {
     if (gpa < 0.0 || gpa > 4.0) {
-        printf("GPA must be between 0.0 and 4.0\n");
+        printf("❌ GPA must be between 0.0 and 4.0\n");
         return 0;
     }
     return 1;
 }
 
-int student_validation_email(const char* email) {
-    printf("Validation de l'email...\n");
-    return 1; // always accept for now, simple
+// Email Validation: Checks for emptiness, length, valid structure, and valid domain
+int student_validate_email(const char* email) {
+    if (!email || strlen(email) == 0 || strlen(email) > MAX_EMAIL_LENGTH) {
+        printf("Invalid email: Length is 0 or exceeds maximum.\n");
+        return 0;
+    }
+    char* at_pos = strchr(email, '@');
+    if (!at_pos || strchr(at_pos + 1, '@')) {
+        printf("Invalid email format. Please use format: user@domain.com\n");
+        return 0;
+    }
+    // Check that there's at least one character before @
+    if (at_pos == email) {
+        printf("Invalid email format. Please use format: user@domain.com\n");
+        return 0;
+    }
+    // Check that domain has at least one dot
+    char* dot = strchr(at_pos + 1, '.');
+    if (!dot || dot == at_pos + 1) {
+        printf("Invalid email format. Please use format: user@domain.com\n");
+        return 0;
+    }
+    // Check that there's at least one character after the last dot
+    char* last_dot = strrchr(at_pos + 1, '.');
+    if (last_dot && strlen(last_dot + 1) == 0) {
+        printf("Invalid email format. Please use format: user@domain.com\n");
+        return 0;
+    }
+    return 1;
 }
 
-int student_validation_phone(const char* phone) {
-    printf("Validation du téléphone...\n");
-    return 1; // always accept for now, simple
+// Phone Validation: Checks if phone contains valid characters and is in valid length
+int student_validate_phone(const char* phone) {
+    if (!phone || strlen(phone) == 0 || strlen(phone) > MAX_PHONE_LENGTH || strlen(phone) < 10) {
+        printf("Invalid phone: Empty, too short, or too long.\n");
+        return 0;
+    }
+    int digit_count = 0;
+    for (size_t i = 0; i < strlen(phone); i++) {
+        char c = phone[i];
+        if (c >= '0' && c <= '9') {
+            digit_count++;  // Count digits
+        } else if (c != '+' && c != '-' && c != '(' && c != ')' && c != ' ' && c != '.') {
+            printf("Invalid phone format: Only digits, +, -, (, ), spaces, and dots are allowed.\n");
+            return 0;
+        }
+    }
+    if (digit_count < 7) {
+        printf("Invalid phone format: Phone must contain at least 7 digits.\n");
+        return 0;
+    }
+    return 1;
 }
 
-int student_validation_age(int age) {
+// Age Validation: Checks if age is between 18 and 100
+int student_validate_age(int age) {
     if (age < 18 || age > 100) {
         printf("Age must be between 18 and 100 years\n");
         return 0;
@@ -377,19 +428,19 @@ Student student_input_new() {
     do {
         printf("Email: ");
         scanf("%s", s.email);
-        n = student_validation_email(s.email);
+        n = student_validate_email(s.email);
     } while (n == 0);
 
     do {
         printf("Telephone: ");
         scanf("%s", s.phone);
-        n = student_validation_phone(s.phone);
+        n = student_validate_phone(s.phone);
     } while (n == 0);
 
     do {
         printf("Age: ");
         scanf("%d", &s.age);
-        n = student_validation_age(s.age);
+        n = student_validate_age(s.age);
     } while (n == 0);
 
     printf("Filiere: ");
@@ -404,7 +455,7 @@ Student student_input_new() {
     do {
         printf("GPA: ");
         scanf("%f", &s.gpa);
-        n = student_validation_gpa(s.gpa);
+        n = student_validate_gpa(s.gpa);
     } while (n == 0);
 
     s.enrollment_date = time(0);
@@ -462,7 +513,11 @@ void student_input_edit(Student* student) {
             break;
         case 8:
             printf("Nouvelle enrollment_date (timestamp entier): ");
-            scanf("%ld", &student->enrollment_date);
+            {
+                long long temp;
+                scanf("%lld", &temp);
+                student->enrollment_date = (time_t)temp;
+            }
             break;
         case 9:
             printf("is_active (0/1): ");
