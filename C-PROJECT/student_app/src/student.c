@@ -341,6 +341,137 @@ Student* student_list_get_student(StudentList* list, int index){
         return NULL;
     }
 }
+int student_list_ensure_loaded(StudentList* list){
+    // Check for NULL pointer
+    if (list == NULL) {
+        printf("Error: Invalid student list (NULL pointer)\n");
+        return 0;
+    }
+    
+    // If already loaded, return success
+    if (list->is_loaded) {
+        return 1;
+    }
+    
+    // Check if filename is set
+    if (list->filename[0] == '\0') {
+        printf("Error: No filename set for student list\n");
+        return 0;
+    }
+    
+    // Ensure students array is allocated
+    if (list->students == NULL) {
+        list->students = (Student*)malloc(MAX_STUDENTS * sizeof(Student));
+        if (list->students == NULL) {
+            printf("Error: Failed to allocate memory for students array\n");
+            return 0;
+        }
+        list->capacity = MAX_STUDENTS;
+    }
+    
+    // Reset count before loading to avoid appending to existing data
+    list->count = 0;
+    
+    // Try to load data from file
+    if (student_list_load_from_file(list, list->filename) == 0) {
+        printf("Error: Failed to load student data from file: %s\n", list->filename);
+        return 0;
+    }
+    
+    // Mark as loaded on success
+    list->is_loaded = 1;
+    return 1;
+}
+
+int student_list_save_and_unload(StudentList* list){
+    // Check for NULL pointer
+    if (list == NULL) {
+        printf("Error: Invalid student list (NULL pointer)\n");
+        return 0;
+    }
+    
+    // Check if filename is set
+    if (list->filename[0] == '\0') {
+        printf("Error: No filename set for student list\n");
+        return 0;
+    }
+    
+    // Check if data is loaded and has students to save
+    if (!list->is_loaded || list->students == NULL) {
+        printf("Error: No data loaded to save\n");
+        return 0;
+    }
+
+    // Save data to file
+    if (student_list_save_to_file(list, list->filename) == 0) {
+        printf("Error: Failed to save student data to file: %s\n", list->filename);
+        return 0;
+    }
+    
+    // Update last save time
+    list->last_save_time = time(NULL);
+    
+    // Free the students array to unload from memory
+    if (list->students != NULL) {
+        free(list->students);
+        list->students = NULL;
+    }
+    
+    // Reset count and capacity
+    list->count = 0;
+    list->capacity = 0;
+    
+    // Mark as not loaded
+    list->is_loaded = 0;
+    
+    return 1;
+}
+int student_list_auto_save(StudentList* list){
+    // Check for NULL pointer
+    if (list == NULL) {
+        return 0;
+    }
+    
+    // Check if auto-save is enabled
+    if (list->auto_save_enabled == 0) {
+        return 0;
+    }
+    
+    // Check if data is loaded
+    if (!list->is_loaded || list->students == NULL) {
+        return 0;
+    }
+    
+    // Check if filename is set
+    if (list->filename[0] == '\0') {
+        return 0;
+    }
+    
+    // Save data to file
+    if (student_list_save_to_file(list, list->filename) == 0) {
+        return 0;
+    }
+    
+    // Update last save time
+    list->last_save_time = time(NULL);
+    
+    return 1;   
+}
+int student_list_is_loaded(StudentList* list){
+    if(list == NULL){
+        return 0;
+    }
+    return list->is_loaded;
+}
+void student_list_set_filename(StudentList* list, const char* filename){
+    if (list == NULL || filename == NULL) {
+        return;
+    }
+    
+    // Use strncpy to safely copy filename with size limit
+    strncpy(list->filename, filename, sizeof(list->filename) - 1);
+    list->filename[sizeof(list->filename) - 1] = '\0'; // Ensure null termination
+}
 int student_validate_gpa(float gpa) {
     if (gpa < 0.0 || gpa > 4.0) {
         printf("❌ GPA must be between 0.0 and 4.0\n");
