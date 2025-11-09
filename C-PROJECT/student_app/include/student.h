@@ -28,7 +28,7 @@ typedef struct {
     Student* students;
     int count;
     int capacity;
-    int is_loaded;           // Flag to track if data is loaded in memory
+    int is_loaded; s          // Flag to track if data is loaded in memory
     char filename[256];      // Source filename for encrypted storage
     int auto_save_enabled;   // Flag for automatic saving
     time_t last_save_time;   // Timestamp of last save
