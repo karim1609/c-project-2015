@@ -13,14 +13,14 @@
 #include <string.h>
 
 ClubList* club_list_create(void){
-    clublist* list = (clublist*)malloc(sizeof(clubliste));
+    ClubList* list = (ClubList*)malloc(sizeof(ClubList));
     if(list == NULL){
-        printf("error: faild to create club list");
+        printf("error: failed to create club list");
         return NULL;
     }
-    club *clubs = (club*)malloc(sizeof(club)*MAX_CLUBS);
+    Club *clubs = (Club*)malloc(sizeof(Club)*MAX_CLUBS);
     if(clubs == NULL){
-        printf("error: faild to allocate memory for clubs");
+        printf("error: failed to allocate memory for clubs");
         free(list);
         return NULL;
     }
@@ -65,7 +65,8 @@ int club_list_remove(ClubList* list, int club_id){
             list->count--;
             return 1;
         }
-        
+    }
+    return 0;
 }
 Club* club_list_find_by_id(ClubList* list, int club_id){
     if(list == NULL){
@@ -141,14 +142,14 @@ void club_list_display_club(Club* club){
 
 MembershipList* membership_list_create(void) {
     MembershipList* list = (MembershipList*)malloc(sizeof(MembershipList));
-    if (!list) {
+    if (list == NULL) {
         printf("error: could not allocate memory for membership list\n");
         return NULL;
     }
     list->capacity = 16;
     list->count = 0;
     list->memberships = (ClubMembership*)malloc(sizeof(ClubMembership) * list->capacity);
-    if (!list->memberships) {
+    if (list->memberships == NULL) {
         printf("error: could not allocate memory for memberships array\n");
         free(list);
         return NULL;
@@ -175,7 +176,7 @@ int membership_list_add(MembershipList* list, ClubMembership membership) {
     if (list->count >= list->capacity) {
         int new_capacity = list->capacity * 2;
         ClubMembership* new_memberships = (ClubMembership*)realloc(list->memberships, sizeof(ClubMembership) * new_capacity);
-        if (!new_memberships) {
+        if (new_memberships == NULL) {
             printf("error: could not allocate more memory for memberships\n");
             return 0;
         }
@@ -233,7 +234,7 @@ int club_list_save_to_file(ClubList* list, const char* filename) {
     for (int i = 0; i < list->count; i++) {
         Club* cb = &list->clubs[i];
         // Save all fields in a CSV format
-        fprintf(file, "%d,%s,%s,%s,%d,%d,%d,%d,%lld,%lld,%s,%s,%s,%d\n",
+        fprintf(file, "%d,%s,%s,%s,%d,%d,%d,%d,%lld,%lld,%s,%s,%s,%f,%d\n",
             cb->id,
             cb->name,
             cb->description,
@@ -247,6 +248,7 @@ int club_list_save_to_file(ClubList* list, const char* filename) {
             cb->meeting_day,
             cb->meeting_time,
             cb->meeting_location,
+            cb->budget,
             cb->is_active
         );
     }
@@ -272,7 +274,7 @@ int club_list_load_from_file(ClubList* list, const char* filename){
         long long founded_date_temp, last_meeting_temp;
 
         // Parse the CSV line, matching the save format
-        int fields = sscanf(line, "%d,%[^,],%[^,],%[^,],%d,%d,%d,%d,%lld,%lld,%[^,],%[^,],%[^,],%d",
+        int fields = sscanf(line, "%d,%[^,],%[^,],%[^,],%d,%d,%d,%d,%lld,%lld,%[^,],%[^,],%[^,],%f,%d",
             &cb.id,
             cb.name,
             cb.description,
@@ -286,10 +288,11 @@ int club_list_load_from_file(ClubList* list, const char* filename){
             cb.meeting_day,
             cb.meeting_time,
             cb.meeting_location,
+            &cb.budget,
             &cb.is_active
         );
 
-        if (fields == 14) {
+        if (fields == 15) {
             cb.founded_date = (time_t)founded_date_temp;
             cb.last_meeting = (time_t)last_meeting_temp;
 
