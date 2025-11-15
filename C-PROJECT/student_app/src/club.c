@@ -11,16 +11,18 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
+#include <sys/time.h>
 
 ClubList* club_list_create(void){
     ClubList* list = (ClubList*)malloc(sizeof(ClubList));
     if(list == NULL){
-        printf("error: failed to create club list");
+        printf("error: failed to create club list\n");
         return NULL;
     }
     Club *clubs = (Club*)malloc(sizeof(Club)*MAX_CLUBS);
     if(clubs == NULL){
-        printf("error: failed to allocate memory for clubs");
+        printf("error: failed to allocate memory for clubs\n");
         free(list);
         return NULL;
     }
@@ -41,11 +43,11 @@ void club_list_destroy(ClubList* list){
 }
 
 int club_list_add(ClubList* list, Club new_club){
-    if(list == NULL){
+    if(list == NULL || list->clubs == NULL){
         return 0;
     }
     if(list->count >= list->capacity){
-        printf("error: club list is full");
+        printf("error: club list is full\n");
         return 0;
     }
     list->clubs[list->count] = new_club;
@@ -53,7 +55,7 @@ int club_list_add(ClubList* list, Club new_club){
     return 1;
 }
 int club_list_remove(ClubList* list, int club_id){
-    if(list == NULL){
+    if(list == NULL || list->clubs == NULL){
         return 0;
     }
     for(int i = 0; i < list->count; i++){
@@ -69,8 +71,8 @@ int club_list_remove(ClubList* list, int club_id){
     return 0;
 }
 Club* club_list_find_by_id(ClubList* list, int club_id){
-    if(list == NULL){
-        printf("list is null");
+    if(list == NULL || list->clubs == NULL){
+        printf("list is null\n");
         return NULL;
     }
     for(int i = 0; i < list->count; i++){
@@ -78,12 +80,12 @@ Club* club_list_find_by_id(ClubList* list, int club_id){
             return &list->clubs[i];
         }
     }
-    printf("club with id %d not found", club_id);
+    printf("club with id %d not found\n", club_id);
     return NULL;
 }
 Club* club_list_find_by_name(ClubList* list, const char* name){
-    if(list == NULL){
-        printf("list is null");
+    if(list == NULL || list->clubs == NULL){
+        printf("list is null\n");
         return NULL;
     }
     for(int i = 0; i < list->count; i++){
@@ -91,12 +93,12 @@ Club* club_list_find_by_name(ClubList* list, const char* name){
             return &list->clubs[i];
         }
     }
-    printf("club with name %s not found", name);
+    printf("club with name %s not found\n", name);
     return NULL;
 } 
 void club_list_display_all(ClubList* list){
-    if(list == NULL){
-        printf("list is null");
+    if(list == NULL || list->clubs == NULL){
+        printf("list is null\n");
         return;
     }
   for(int i = 0; i < list->count; i++){
@@ -274,7 +276,7 @@ int club_list_load_from_file(ClubList* list, const char* filename){
         long long founded_date_temp, last_meeting_temp;
 
         // Parse the CSV line, matching the save format
-        int fields = sscanf(line, "%d,%[^,],%[^,],%[^,],%d,%d,%d,%d,%lld,%lld,%[^,],%[^,],%[^,],%f,%d",
+        int fields = sscanf(line, "%d,%49[^,],%499[^,],%49[^,],%d,%d,%d,%d,%lld,%lld,%19[^,],%19[^,],%99[^,],%f,%d",
             &cb.id,
             cb.name,
             cb.description,
@@ -394,3 +396,195 @@ int membership_list_load_from_file(MembershipList* list, const char* filename){
     return 1;
 }
 
+// Improved version, fixing many critical issues and aligning with your structures.
+
+// Function to create a new club (asks user for input)
+Club club_input_new(void) {
+    Club c;
+    printf("Les informations du club :\n");
+    printf("Id: ");
+    scanf("%d", &c.id);
+
+    printf("Name: ");
+    scanf(" %[^\n]", c.name);
+
+    printf("Description: ");
+    scanf(" %[^\n]", c.description);
+
+    printf("Category: ");
+    scanf(" %[^\n]", c.category);
+
+    printf("President_id: ");
+    scanf("%d", &c.president_id);
+
+    printf("Advisor_id: ");
+    scanf("%d", &c.advisor_id);
+
+    printf("Member_count: ");
+    scanf("%d", &c.member_count);
+
+    // If founded_date is time_t in struct, user must enter year,month,day and convert
+    int year, month, day;
+    struct tm tm_date = {0};
+    printf("Founded date (jour-mois-annee, e.g. 30-05-2024): ");
+    scanf("%d-%d-%d", &day, &month, &year);
+    tm_date.tm_mday = day;
+    tm_date.tm_mon = month - 1; // struct tm months are 0-11
+    tm_date.tm_year = year - 1900;
+    c.founded_date = mktime(&tm_date);
+
+    printf("Budget: ");
+    scanf("%f", &c.budget);
+
+    c.is_active = 1;
+    return c;
+}
+
+// Function to edit a club's information
+void club_input_edit(Club* club) {
+    int choice;
+    printf("\nQue voulez-vous modifier ?\n");
+    printf(" 1 -> Id\n");
+    printf(" 2 -> Nom\n");
+    printf(" 3 -> Description\n");
+    printf(" 4 -> Category\n");
+    printf(" 5 -> President_id\n");
+    printf(" 6 -> Advisor_id\n");
+    printf(" 7 -> Member_count\n");
+    printf(" 8 -> Founded_date\n");
+    printf(" 9 -> Budget\n");
+    printf("10 -> Is_active\n");
+    printf(" 0 -> Annuler\n");
+    printf("Choix: ");
+    scanf("%d", &choice);
+
+    switch (choice) {
+    case 0:
+        printf("Rien n'a été modifié.\n");
+        break;
+    case 1:
+        printf("Nouveau Id: ");
+        scanf("%d", &club->id);
+        printf("Id modifié.\n");
+        break;
+    case 2:
+        printf("Nouveau Name: ");
+        scanf(" %[^\n]", club->name);
+        printf("Name modifié.\n");
+        break;
+    case 3:
+        printf("Nouveau Description: ");
+        scanf(" %[^\n]", club->description);
+        printf("Description modifiée.\n");
+        break;
+    case 4:
+        printf("Nouveau Category: ");
+        scanf(" %[^\n]", club->category);
+        printf("Category modifiée.\n");
+        break;
+    case 5:
+        printf("Nouveau President_Id: ");
+        scanf("%d", &club->president_id);
+        printf("President_Id modifié.\n");
+        break;
+    case 6:
+        printf("Nouveau Advisor_Id: ");
+        scanf("%d", &club->advisor_id);
+        printf("Advisor_Id modifié.\n");
+        break;
+    case 7:
+        printf("Nouveau Member_count: ");
+        scanf("%d", &club->member_count);
+        printf("Member_count modifié.\n");
+        break;
+    case 8: {
+        int day, month, year;
+        struct tm tm_date = {0};
+        printf("Nouvelle Founded_date (jour-mois-annee): ");
+        scanf("%d-%d-%d", &day, &month, &year);
+        tm_date.tm_mday = day;
+        tm_date.tm_mon = month - 1;
+        tm_date.tm_year = year - 1900;
+        club->founded_date = mktime(&tm_date);
+        printf("Founded_date modifiée.\n");
+        break;
+    }
+    case 9:
+        printf("Nouveau Budget: ");
+        scanf("%f", &club->budget);
+        printf("Budget modifié.\n");
+        break;
+    case 10:
+        printf("Nouvelle Situation (0: not active / 1: active): ");
+        scanf("%d", &club->is_active);
+        printf("Situation modifiée.\n");
+        break;
+    default:
+        printf("Choix invalide.\n");
+        break;
+    }
+}
+
+// Function to display a summary of all clubs
+void club_display_summary(ClubList* list) {
+    if (list == NULL || list->clubs == NULL) {
+        printf("Error: Invalid club list\n");
+        return;
+    }
+    
+    if (list->count == 0) {
+        printf("No clubs available.\n");
+        return;
+    }
+    
+    printf("\n=== CLUB SUMMARY ===\n");
+    printf("%-5s %-30s %-20s %-8s %-8s %-10s\n", 
+           "ID", "Name", "Category", "Members", "Max", "Status");
+    printf("----------------------------------------------------------------------------\n");
+    
+    for (int i = 0; i < list->count; i++) {
+        Club* club = &list->clubs[i];
+        printf("%-5d %-30s %-20s %-8d %-8d %-10s\n",
+               club->id,
+               club->name,
+               club->category,
+               club->member_count,
+               club->max_members,
+               club->is_active ? "Active" : "Inactive");
+    }
+    
+    printf("----------------------------------------------------------------------------\n");
+    printf("Total clubs: %d\n\n", list->count);
+}
+
+// Function for a student to join a club (creates a new membership)
+int join_club(MembershipList* list, int student_id, int club_id, const char* role) {
+    if (!list || !role) return 0;
+
+    ClubMembership mmbsh;
+    mmbsh.id = 0; // Should be assigned properly elsewhere (e.g., unique id system)
+    mmbsh.student_id = student_id;
+    mmbsh.club_id = club_id;
+    strncpy(mmbsh.role, role, sizeof(mmbsh.role) - 1);
+    mmbsh.role[sizeof(mmbsh.role) - 1] = '\0';
+    mmbsh.is_active = 1;
+
+    int day, month, year;
+    struct tm tm_date = {0};
+    printf("Date d'adhesion (jour-mois-annee): ");
+    scanf("%d-%d-%d", &day, &month, &year);
+    tm_date.tm_mday = day;
+    tm_date.tm_mon = month - 1;
+    tm_date.tm_year = year - 1900;
+    mmbsh.join_date = mktime(&tm_date);
+
+    int result = membership_list_add(list, mmbsh);
+    return result;
+}
+
+// Function for a student to leave a club (removes membership by membership id)
+int leave_club(MembershipList* list, int membership_id) {
+    if (list == NULL)
+        return 0;
+    return membership_list_remove(list, membership_id);
+}
